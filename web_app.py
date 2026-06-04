@@ -4,12 +4,11 @@ from dotenv import load_dotenv
 from google import genai
 from PIL import Image
 import io
+import os
 
 # 1. Page Configuration
 st.set_page_config(page_title="JUIT AI Note Engine", layout="wide")
 st.title("🎓 JUIT Smart Research Assistant")
-
-# 2. PDF Generation Function
 
 # 2. PDF Generation Function
 def create_pdf(text):
@@ -23,31 +22,39 @@ def create_pdf(text):
     
     # Multiline text for notes
     pdf.set_font("Helvetica", size=12)
-    pdf.multi_cell(0, 10, txt=text)
+    # Using encode-ignore to handle any special AI characters that PDF can't render
+    safe_text = text.encode('latin-1', 'ignore').decode('latin-1')
+    pdf.multi_cell(0, 10, txt=safe_text)
     
-    # NEW FIX: Use a buffer to store the PDF in memory
+    # Use a buffer to store the PDF in memory
     pdf_buffer = io.BytesIO()
-    # Write the PDF data into the buffer
     pdf_buffer.write(pdf.output()) 
-    # Move to the start of the buffer so Streamlit can read it
     pdf_buffer.seek(0) 
     
     return pdf_buffer
 
 # 3. Load API and UI
 load_dotenv()
-client = genai.Client()
+
+# Cloud-Friendly API Key Logic
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+client = genai.Client(api_key=api_key)
 
 with st.sidebar:
     st.header("Upload Center")
     uploaded_file = st.file_uploader("Upload lecture photo", type=["jpg", "png"])
     process_btn = st.button("Generate & Prepare PDF 🚀")
 
+# 4. Processing Logic
 if uploaded_file and process_btn:
     col1, col2 = st.columns(2)
     image = Image.open(uploaded_file)
     
-   with col1:
+    with col1:
         st.image(image, caption="Source Image", use_container_width=True)
 
     with col2:
@@ -77,7 +84,7 @@ if uploaded_file and process_btn:
                     mime="application/pdf"
                 )
 
-            # 4. The Smart Evaluator Fix: Catch errors
+            # 4. Error Handling
             except Exception as e:
                 if "503" in str(e) or "high demand" in str(e).lower():
                     st.error("⚠️ **Server at Capacity:** Google's AI is currently experiencing high demand. Please wait a moment and try again.")
