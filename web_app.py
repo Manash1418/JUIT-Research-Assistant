@@ -69,6 +69,11 @@ with st.sidebar:
         help="Get a free Gemini API key at https://aistudio.google.com/app/apikey"
     )
     
+    active_api_key = user_api_key.strip() if user_api_key else ""
+    
+    if active_api_key and not active_api_key.startswith("AIza"):
+        st.caption("⚠️ **Notice:** Gemini API keys from Google AI Studio usually start with `AIzaSy...`.")
+    
     selected_model = st.selectbox(
         "AI Model",
         options=["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
@@ -84,16 +89,13 @@ with st.sidebar:
 st.title("🎓 JUIT Smart Research Assistant")
 st.caption("AI-Powered Lecture Note Extraction & Engineering Document Generator")
 
-# API Key Validation Message
-active_api_key = user_api_key.strip() if user_api_key else ""
-
 if not active_api_key:
     st.info("💡 **Getting Started:** Enter your Google Gemini API Key in the sidebar. You can generate a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey).")
 
 # 5. Processing Logic
 if uploaded_file and process_btn:
     if not active_api_key:
-        st.error("🔑 Please provide a valid Gemini API Key in the sidebar before generating notes.")
+        st.error("🔑 Please enter your Gemini API Key in the sidebar before generating notes.")
     else:
         col1, col2 = st.columns([1, 1])
         image = Image.open(uploaded_file)
@@ -138,9 +140,13 @@ if uploaded_file and process_btn:
                 except Exception as e:
                     err_msg = str(e)
                     if "401" in err_msg or "UNAUTHENTICATED" in err_msg or "API_KEY_INVALID" in err_msg or "invalid authentication" in err_msg.lower():
-                        st.error("🔑 **Authentication Error:** Invalid API Key. Please make sure you are using a valid Gemini API Key from [Google AI Studio](https://aistudio.google.com/app/apikey).")
+                        st.error("🔑 **Authentication Failed (Invalid API Key):** The provided API key was rejected by Google.\n\n"
+                                 "👉 **How to fix:**\n"
+                                 "1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)\n"
+                                 "2. Click **Create API key**\n"
+                                 "3. Copy the key (it starts with `AIzaSy...`) and paste it into the sidebar.")
                     elif "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
-                        st.error("⏳ **Rate Limit Exceeded:** Free tier quota reached. Please wait a minute before retrying.")
+                        st.error("⏳ **Rate Limit Exceeded:** Free tier quota reached. Please wait 1 minute before retrying.")
                     elif "503" in err_msg or "high demand" in err_msg.lower() or "UNAVAILABLE" in err_msg:
                         st.error("⚠️ **Server at Capacity:** Google's AI servers are currently busy. Please retry in a few moments.")
                     else:
