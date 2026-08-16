@@ -1,4 +1,17 @@
 import os
+import sys
+
+# If run via Streamlit (Streamlit Cloud default entrypoint), delegate to the Streamlit app
+try:
+    import streamlit as st
+    # Check if running in Streamlit runtime
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    if get_script_run_ctx() is not None:
+        import streamlit_app
+        sys.exit(0)
+except Exception:
+    pass
+
 from dotenv import load_dotenv
 from google import genai
 from PIL import Image
@@ -7,8 +20,16 @@ from PIL import Image
 load_dotenv()
 
 def generate_study_notes(image_path, user_prompt):
-    # Initialize the client (it automatically picks up GEMINI_API_KEY from environment)
-    client = genai.Client()
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        print("Error: GEMINI_API_KEY is missing in environment.")
+        return None
+
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception as err:
+        print(f"Error initializing Gemini client: {err}")
+        return None
     
     # Open the image using Pillow
     try:
@@ -19,16 +40,19 @@ def generate_study_notes(image_path, user_prompt):
 
     print("Processing image and generating structured notes... Please wait.")
 
-    # Call the multimodal model
-    response = client.models.generate_content(
-        model='gemini-2.0-flash',
-        contents=[
-            img, 
-            user_prompt
-        ]
-    )
-    
-    return response.text
+    try:
+        # Call the multimodal model
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                img, 
+                user_prompt
+            ]
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error generating content: {e}")
+        return None
 
 if __name__ == "__main__":
     # Specify the test image name
