@@ -37,10 +37,13 @@ def create_pdf(text):
 load_dotenv()
 
 # Cloud-Friendly API Key Logic
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    try:
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        pass
 
 client = genai.Client(api_key=api_key)
 
