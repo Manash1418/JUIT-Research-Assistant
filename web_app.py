@@ -43,59 +43,33 @@ def create_pdf(text):
     pdf_buffer = io.BytesIO(bytes(pdf.output()))
     return pdf_buffer
 
-# 3. Environment & Secrets Handling
+# 3. Environment & Secrets Handling (Backend Only - Not Shown on Website UI)
 load_dotenv()
 
-# Detect pre-configured API Key from Streamlit Secrets or Environment Variable
-detected_api_key = ""
+api_key = ""
 try:
     if "GEMINI_API_KEY" in st.secrets:
-        detected_api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
     pass
 
-if not detected_api_key:
-    detected_api_key = os.getenv("GEMINI_API_KEY", "")
+if not api_key:
+    api_key = os.getenv("GEMINI_API_KEY", "")
 
 # 4. Sidebar UI
 with st.sidebar:
-    st.header("⚙️ Configuration")
-    
-    # Allow user to provide/override API Key directly in UI
-    user_api_key = st.text_input(
-        "Google Gemini API Key",
-        value=detected_api_key,
-        type="password",
-        help="Get a free Gemini API key at https://aistudio.google.com/app/apikey"
-    )
-    
-    active_api_key = user_api_key.strip() if user_api_key else ""
-    
-    if active_api_key and not active_api_key.startswith("AIza"):
-        st.caption("⚠️ **Notice:** Gemini API keys from Google AI Studio usually start with `AIzaSy...`.")
-    
-    selected_model = st.selectbox(
-        "AI Model",
-        options=["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
-        index=0
-    )
-    
-    st.markdown("---")
     st.header("📤 Upload Center")
-    uploaded_file = st.file_uploader("Upload lecture photo / diagram", type=["jpg", "jpeg", "png", "webp"])
+    uploaded_file = st.file_uploader("Upload lecture photo", type=["jpg", "jpeg", "png", "webp"])
     process_btn = st.button("Generate & Prepare PDF 🚀", type="primary", use_container_width=True)
 
 # Main Title & Subtitle
 st.title("🎓 JUIT Smart Research Assistant")
 st.caption("AI-Powered Lecture Note Extraction & Engineering Document Generator")
 
-if not active_api_key:
-    st.info("💡 **Getting Started:** Enter your Google Gemini API Key in the sidebar. You can generate a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey).")
-
 # 5. Processing Logic
 if uploaded_file and process_btn:
-    if not active_api_key:
-        st.error("🔑 Please enter your Gemini API Key in the sidebar before generating notes.")
+    if not api_key:
+        st.error("⚠️ **API Key Missing:** GEMINI_API_KEY is not configured in server environment or Streamlit Secrets.")
     else:
         col1, col2 = st.columns([1, 1])
         image = Image.open(uploaded_file)
@@ -106,13 +80,13 @@ if uploaded_file and process_btn:
 
         with col2:
             st.subheader("📝 AI-Generated Academic Notes")
-            with st.spinner(f"Analyzing with {selected_model}..."):
+            with st.spinner("Analyzing engineering data..."):
                 try:
-                    # Initialize client with the active API key
-                    client = genai.Client(api_key=active_api_key)
+                    # Initialize client with backend API key
+                    client = genai.Client(api_key=api_key)
                     
                     response = client.models.generate_content(
-                        model=selected_model,
+                        model="gemini-2.0-flash",
                         contents=[
                             image,
                             "Analyze this image and create comprehensive, well-structured academic engineering study notes. "
@@ -140,16 +114,12 @@ if uploaded_file and process_btn:
                 except Exception as e:
                     err_msg = str(e)
                     if "401" in err_msg or "UNAUTHENTICATED" in err_msg or "API_KEY_INVALID" in err_msg or "invalid authentication" in err_msg.lower():
-                        st.error("🔑 **Authentication Failed (Invalid API Key):** The provided API key was rejected by Google.\n\n"
-                                 "👉 **How to fix:**\n"
-                                 "1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)\n"
-                                 "2. Click **Create API key**\n"
-                                 "3. Copy the key (it starts with `AIzaSy...`) and paste it into the sidebar.")
+                        st.error("⚠️ **Server at Capacity / API Error:** Google's AI authentication failed. Please verify the backend API key.")
                     elif "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower():
                         st.error("⏳ **Rate Limit Exceeded:** Free tier quota reached. Please wait 1 minute before retrying.")
                     elif "503" in err_msg or "high demand" in err_msg.lower() or "UNAVAILABLE" in err_msg:
                         st.error("⚠️ **Server at Capacity:** Google's AI servers are currently busy. Please retry in a few moments.")
                     else:
-                        st.error(f"🔍 **Error:** {err_msg}")
+                        st.error(f"🔍 **Note:** An unexpected issue occurred: {err_msg}")
 elif not uploaded_file and process_btn:
-    st.warning("⚠️ Please upload an image in the sidebar first.")
+    st.warning("⚠️ Please upload a lecture photo in the sidebar first.")
